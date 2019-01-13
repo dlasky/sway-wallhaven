@@ -54,7 +54,7 @@ func main() {
 			getWallpaper()
 		}
 
-		db, err := bolt.Open("my.db", 0600, nil)
+		db, err := bolt.Open("wallhaven.db", 0600, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
