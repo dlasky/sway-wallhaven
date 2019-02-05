@@ -18,25 +18,35 @@ import (
 func main() {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "cache",
+			Usage: "--cache ~/.wallhaven sets a working directory to store files",
+		},
+		cli.StringFlag{
+			Name:  "config",
+			Usage: "--config ~/.config/sway-wallhaven/config",
+		},
 		cli.BoolFlag{
 			Name:  "set",
-			Usage: "",
+			Usage: "--set sets a random wallpaper from the currently available",
 		},
 		cli.BoolFlag{
 			Name:  "fetch",
-			Usage: "",
+			Usage: "--fetch attempts to fetch new wallpapers for ",
 		},
 	}
 	app.Name = "wallhaven swaywm"
 	app.Usage = "download and set wallpapers"
 	app.Action = func(c *cli.Context) error {
 
+		// getSwayIPCPath()
+
 		if c.Bool("fetch") {
 			width, height, err := getResolution()
 			if err != nil {
 				log.Fatal(err)
 			}
-			err = downloadWallpapers(width, height)
+			err = downloadWallpapers("landscape", c.String("cache"), width, height)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -47,7 +57,10 @@ func main() {
 		}
 
 		if c.Bool("set") {
-			setWallpaper()
+			err := setWallpaper(getCachePath(c.String("cache")))
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
 		if c.Bool("get") {
@@ -77,26 +90,30 @@ func getResolution() (int, int, error) {
 		return 0, 0, err
 	}
 	outputs := make(SwayOutputs, 0, 0)
-	json.Unmarshal(out, &outputs)
+	err = json.Unmarshal(out, &outputs)
+	if err != nil {
+		return 0, 0, err
+	}
 	rect := outputs[0].Rect
 	return rect.Width, rect.Height, nil
 }
 
-func downloadWallpapers(width, height int) error {
+func downloadWallpapers(term string, path string, width, height int) error {
 	res := new(GoHaven.Resolutions)
 	res.Set(fmt.Sprintf("%vx%v", width, height))
 
 	gh := GoHaven.New()
-	ghi, err := gh.Search("landscape", res)
+	ghi, err := gh.Search(term, res)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	for _, res := range ghi.Results {
 		detail, err := res.ImageID.Details()
 		if err != nil {
 			return err
 		}
-		p, err := detail.Download(".")
+		fmt.Println(getCachePath(path))
+		p, err := detail.Download(getCachePath(path))
 		if err != nil {
 			return err
 		}
@@ -105,15 +122,18 @@ func downloadWallpapers(width, height int) error {
 	return nil
 }
 
-func setWallpaper() error {
-	images, err := filepath.Glob("wallhaven-*")
+func setWallpaper(dirPath string) error {
+	images, err := filepath.Glob(fmt.Sprintf("%v/wallhaven-*", dirPath))
 	if err != nil {
 		return err
 	}
+	count := len(images)
+	if count == 0 {
+		return fmt.Errorf("No images found at path %v", dirPath)
+	}
 	rand.Seed(time.Now().Unix())
 	img := fmt.Sprint(images[rand.Intn(len(images))])
-	imgFull := fmt.Sprintf("/home/aerolith/Development/go/wallhaven/%v", img)
-	cmd := exec.Command("/usr/bin/swaymsg", "output", "*", "bg", imgFull, "fill")
+	cmd := exec.Command("/usr/bin/swaymsg", "output", "*", "bg", img, "fill")
 	out, err := cmd.CombinedOutput()
 	fmt.Printf("%s", out)
 	return err
