@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -34,26 +33,37 @@ func main() {
 			Name:  "fetch",
 			Usage: "--fetch attempts to fetch new wallpapers for ",
 		},
+		cli.StringFlag{
+			Name:  "search",
+			Usage: "--search the term to search for on wallhaven",
+			Value: "landscape",
+		},
+		cli.BoolFlag{
+			Name:  "res",
+			Usage: "--show current resolution",
+		},
 	}
 	app.Name = "wallhaven swaywm"
 	app.Usage = "download and set wallpapers"
 	app.Action = func(c *cli.Context) error {
-
-		// getSwayIPCPath()
 
 		if c.Bool("fetch") {
 			width, height, err := getResolution()
 			if err != nil {
 				log.Fatal(err)
 			}
-			err = downloadWallpapers("landscape", c.String("cache"), width, height)
+			err = downloadWallpapers(c.String("search"), c.String("cache"), width, height)
 			if err != nil {
 				log.Fatal(err)
 			}
 		}
 
 		if c.Bool("res") {
-			getResolution()
+			w, h, err := getResolution()
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("%vx%v", w, h)
 		}
 
 		if c.Bool("set") {
@@ -85,17 +95,18 @@ func main() {
 
 func getResolution() (int, int, error) {
 
-	out, err := exec.Command("/usr/bin/swaymsg", "-rt", "get_outputs").Output()
-	if err != nil {
-		return 0, 0, err
-	}
+	conn, err := getSocket()
+	defer conn.Close()
+
+	msg, err := trip(conn, message{Type: messageTypeGetOutputs})
 	outputs := make(SwayOutputs, 0, 0)
-	err = json.Unmarshal(out, &outputs)
+	err = json.Unmarshal(msg.Payload, &outputs)
 	if err != nil {
 		return 0, 0, err
 	}
 	rect := outputs[0].Rect
 	return rect.Width, rect.Height, nil
+
 }
 
 func downloadWallpapers(term string, path string, width, height int) error {
