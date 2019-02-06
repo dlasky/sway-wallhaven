@@ -59,3 +59,8 @@ type SwayOutputs []struct {
 	} `json:"current_mode"`
 	Focused bool `json:"focused"`
 }
+
+type commandReply struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error"`
+}

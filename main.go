@@ -133,9 +133,18 @@ func setWallpaper(dirPath string) error {
 	}
 	rand.Seed(time.Now().Unix())
 	img := fmt.Sprint(images[rand.Intn(len(images))])
-	cmd := exec.Command("/usr/bin/swaymsg", "output", "*", "bg", img, "fill")
-	out, err := cmd.CombinedOutput()
-	fmt.Printf("%s", out)
+
+	conn, err := getSocket()
+	if err != nil {
+		return err
+	}
+	msg, err := trip(conn, message{Type: messageTypeRunCommand, Payload: []byte("output * bg " + img + " fill")})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s", msg.Payload)
+	conn.Close()
+
 	return err
 }
 
