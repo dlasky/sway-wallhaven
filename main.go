@@ -25,57 +25,63 @@ func main() {
 			Name:  "config",
 			Usage: "--config ~/.config/sway-wallhaven/config",
 		},
-		cli.BoolFlag{
-			Name:  "set",
-			Usage: "--set sets a random wallpaper from the currently available",
-		},
-		cli.BoolFlag{
-			Name:  "fetch",
-			Usage: "--fetch attempts to fetch new wallpapers for ",
-		},
-		cli.StringFlag{
-			Name:  "search",
-			Usage: "--search the term to search for on wallhaven",
-			Value: "landscape",
-		},
-		cli.BoolFlag{
-			Name:  "res",
-			Usage: "--show current resolution",
-		},
 	}
 	app.Name = "wallhaven swaywm"
 	app.Usage = "download and set wallpapers"
+	app.Commands = []cli.Command{
+		{
+			Name:    "fetch",
+			Aliases: []string{"f"},
+			Usage:   "fetch new wallpapers from wallhaven",
+			Action: func(c *cli.Context) error {
+				width, height, err := getResolution()
+				if err != nil {
+					log.Fatal(err)
+				}
+				err = downloadWallpapers(c.String("search"), c.String("cache"), width, height)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				return nil
+			},
+		},
+		{
+			Name:    "resolution",
+			Aliases: []string{"r"},
+			Usage:   "print resolution and exit (useful for debugging)",
+			Action: func(c *cli.Context) error {
+				w, h, err := getResolution()
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Printf("%vx%v", w, h)
+				return nil
+			},
+		},
+		{
+			Name:    "set",
+			Aliases: []string{"s"},
+			Usage:   "set sets a new randomized wallpaper and exits",
+			Action: func(c *cli.Context) error {
+				err := setWallpaper(getCachePath(c.String("cache")))
+				if err != nil {
+					log.Fatal(err)
+				}
+				return nil
+			},
+		},
+		{
+			Name:    "get",
+			Aliases: []string{"g"},
+			Usage:   "returns the currently set wallpaper and exits",
+			Action: func(c *cli.Context) error {
+				getWallpaper()
+				return nil
+			},
+		},
+	}
 	app.Action = func(c *cli.Context) error {
-
-		if c.Bool("fetch") {
-			width, height, err := getResolution()
-			if err != nil {
-				log.Fatal(err)
-			}
-			err = downloadWallpapers(c.String("search"), c.String("cache"), width, height)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-
-		if c.Bool("res") {
-			w, h, err := getResolution()
-			if err != nil {
-				log.Fatal(err)
-			}
-			fmt.Printf("%vx%v", w, h)
-		}
-
-		if c.Bool("set") {
-			err := setWallpaper(getCachePath(c.String("cache")))
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-
-		if c.Bool("get") {
-			getWallpaper()
-		}
 
 		db, err := bolt.Open("wallhaven.db", 0600, nil)
 		if err != nil {
