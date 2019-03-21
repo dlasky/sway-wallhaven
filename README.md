@@ -4,6 +4,6 @@ Basic usage
 
 `go build .`
 
-`wallhaven --fetch`
+`./wallhaven fetch`
 
-`wallhaven --set`
+`./wallhaven set`
