@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/urfave/cli"
 )
@@ -25,9 +25,9 @@ func getCachePath(flag string) string {
 	}
 	cache := os.Getenv("XDG_CACHE_HOME")
 	if cache != "" {
-		return fmt.Sprintf("%v/wallhaven/", cache)
+		return filepath.Join(cache, "wallhaven/")
 	}
-	return fmt.Sprintf("%v/.cache/wallhaven/", home)
+	return filepath.Join(home, ".cache/wallhaven/")
 }
 
 func getConfigPath(flag string) string {
@@ -36,7 +36,7 @@ func getConfigPath(flag string) string {
 	}
 	config := os.Getenv("XDG_CONFIG_HOME")
 	if config != "" {
-		return fmt.Sprintf("%v/wallhaven/", config)
+		return filepath.Join(config, "wallhaven/")
 	}
-	return fmt.Sprintf("%v/.config/wallhaven/", home)
+	return filepath.Join(home, ".config/wallhaven/")
 }

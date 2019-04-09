@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/urfave/cli"
 
@@ -21,14 +21,17 @@ func getDbFromCtx(c *cli.Context) (*db, error) {
 }
 
 func getDb(cpath string) (*db, error) {
-	//TODO: (dlasky) handle folder creation in .config if nil
 	path := getConfigPath(cpath)
-	dbc, err := bolt.Open(fmt.Sprintf("%vsway-wallhaven.db", path), 0600, nil)
+	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
+	}
+	dbc, err := bolt.Open(filepath.Join(path, "sway-wallhaven.db"), 0600, nil)
+	if err != nil {
+		return nil, err
 	}
 	db := db{db: dbc}
-	return &db, err
+	return &db, nil
 }
 
 func (d *db) setWallpaper(path string) error {
