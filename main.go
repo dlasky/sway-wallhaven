@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/Toyz/GoHaven"
 	"github.com/urfave/cli"
-	bolt "go.etcd.io/bbolt"
 )
 
 func main() {
@@ -33,6 +33,9 @@ func main() {
 			Name:    "fetch",
 			Aliases: []string{"f"},
 			Usage:   "fetch new wallpapers from wallhaven",
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "search"},
+			},
 			Action: func(c *cli.Context) error {
 				width, height, err := getResolution()
 				if err != nil {
@@ -64,7 +67,7 @@ func main() {
 			Aliases: []string{"s"},
 			Usage:   "set sets a new randomized wallpaper and exits",
 			Action: func(c *cli.Context) error {
-				err := setWallpaper(getCachePath(c.String("cache")))
+				err := setWallpaper(c)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -76,20 +79,25 @@ func main() {
 			Aliases: []string{"g"},
 			Usage:   "returns the currently set wallpaper and exits",
 			Action: func(c *cli.Context) error {
-				getWallpaper()
+				err := getWallpaper(c)
+				if err != nil {
+					log.Fatal(err)
+				}
 				return nil
 			},
 		},
-	}
-	app.Action = func(c *cli.Context) error {
-
-		db, err := bolt.Open("wallhaven.db", 0600, nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer db.Close()
-
-		return nil
+		{
+			Name:    "restore",
+			Aliases: []string{"r"},
+			Usage:   "restores the previously set wallpaper and exits",
+			Action: func(c *cli.Context) error {
+				err := restoreWallpaper(c)
+				if err != nil {
+					log.Fatal(err)
+				}
+				return nil
+			},
+		},
 	}
 
 	err := app.Run(os.Args)
@@ -139,7 +147,10 @@ func downloadWallpapers(term string, path string, width, height int) error {
 	return nil
 }
 
-func setWallpaper(dirPath string) error {
+func setWallpaper(c *cli.Context) error {
+
+	dirPath := getCachePathFromCtx(c)
+
 	images, err := filepath.Glob(fmt.Sprintf("%v/wallhaven-*", dirPath))
 	if err != nil {
 		return err
@@ -159,12 +170,54 @@ func setWallpaper(dirPath string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s", msg.Payload)
 	conn.Close()
+	if bytes.Compare(msg.Payload, []byte(`[ { "success": true } ]`)) == 0 {
+		db, err := getDbFromCtx(c)
+		if err != nil {
+			return err
+		}
+		err = db.setWallpaper(img)
+		if err != nil {
+			return err
+		}
+		db.close()
+	}
 
 	return err
 }
 
-func getWallpaper() error {
+func getWallpaper(c *cli.Context) error {
+	db, err := getDbFromCtx(c)
+	if err != nil {
+		return err
+	}
+	wallpaper, err := db.getWallpaper()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%v", wallpaper)
+	return nil
+}
+
+func restoreWallpaper(c *cli.Context) error {
+	db, err := getDbFromCtx(c)
+	if err != nil {
+		return err
+	}
+	wallpaper, err := db.getWallpaper()
+	if err != nil {
+		return err
+	}
+	conn, err := getSocket()
+	if err != nil {
+		return err
+	}
+	msg, err := trip(conn, message{Type: messageTypeRunCommand, Payload: []byte("output * bg " + wallpaper + " fill")})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s", msg.Payload)
+	conn.Close()
+	// if bytes.Compare(msg.Payload, []byte(`[ { "success": true } ]`)) == 0 {
 	return nil
 }

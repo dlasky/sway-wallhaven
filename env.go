@@ -3,9 +3,21 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/urfave/cli"
 )
 
 var home = os.Getenv("HOME")
+
+func getCachePathFromCtx(c *cli.Context) string {
+	cache := c.String("cache")
+	return getCachePath(cache)
+}
+
+func getConfigPathFromCtx(c *cli.Context) string {
+	config := c.String("config")
+	return getConfigPath(config)
+}
 
 func getCachePath(flag string) string {
 	if flag != "" {
