@@ -150,7 +150,7 @@ func downloadWallpapers(term string, path string, width, height int) error {
 func setWallpaper(c *cli.Context) error {
 
 	dirPath := getCachePathFromCtx(c)
-
+	fmt.Println(dirPath)
 	images, err := filepath.Glob(fmt.Sprintf("%v/wallhaven-*", dirPath))
 	if err != nil {
 		return err
@@ -161,7 +161,6 @@ func setWallpaper(c *cli.Context) error {
 	}
 	rand.Seed(time.Now().Unix())
 	img := fmt.Sprint(images[rand.Intn(len(images))])
-
 	conn, err := getSocket()
 	if err != nil {
 		return err
@@ -181,6 +180,8 @@ func setWallpaper(c *cli.Context) error {
 			return err
 		}
 		db.close()
+	} else {
+		return fmt.Errorf("%s", msg.Payload)
 	}
 
 	return err
