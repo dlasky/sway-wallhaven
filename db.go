@@ -56,6 +56,10 @@ func (d *db) getWallpaper() (string, error) {
 	return string(out), err
 }
 
+func (d *db) setMetaData() error {
+	return nil
+}
+
 func (d *db) close() error {
 	return d.db.Close()
 }
