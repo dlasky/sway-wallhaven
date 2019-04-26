@@ -162,7 +162,12 @@ func downloadWallpapers(term string, path string, width, height int) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(getCachePath(path))
+
+		// byt, err := json.Marshal(detail)
+		// if err != nil {
+		// 	return err
+		// }
+
 		p, err := detail.Download(getCachePath(path))
 		if err != nil {
 			return err

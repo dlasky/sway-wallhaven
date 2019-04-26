@@ -11,6 +11,7 @@ import (
 
 var settings = []byte("settings")
 var wallpaper = []byte("wallpaper")
+var metaData = []byte("metadata")
 
 type db struct {
 	db *bolt.DB
@@ -56,7 +57,7 @@ func (d *db) getWallpaper() (string, error) {
 	return string(out), err
 }
 
-func (d *db) setMetaData() error {
+func (d *db) setMetaData(path string, meta []byte) error {
 	return nil
 }
 
