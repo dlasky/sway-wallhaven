@@ -2,19 +2,38 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
-	"github.com/Toyz/GoHaven"
+	"github.com/dlasky/go-wallhaven"
 	"github.com/urfave/cli"
+	"go.i3wm.org/i3"
 )
 
 func main() {
+
+	//i3 overrides to work with sway
+	i3.SocketPathHook = func() (string, error) {
+		out, err := exec.Command("sway", "--get-socketpath").CombinedOutput()
+		if err != nil {
+			return "", fmt.Errorf("getting sway socketpath: %v (output: %s)", err, out)
+		}
+		return string(out), nil
+	}
+
+	i3.IsRunningHook = func() bool {
+		out, err := exec.Command("pgrep", "-c", "sway\\$").CombinedOutput()
+		if err != nil {
+			log.Printf("sway running: %v (output: %s)", err, out)
+		}
+		return bytes.Compare(out, []byte("1")) == 0
+	}
+
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -34,14 +53,19 @@ func main() {
 			Aliases: []string{"f"},
 			Usage:   "fetch new wallpapers from wallhaven",
 			Flags: []cli.Flag{
-				cli.StringFlag{Name: "search"},
+				cli.StringFlag{
+					Name:  "search",
+					Usage: "search landscape",
+					Value: "landscape",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				width, height, err := getResolution()
 				if err != nil {
 					log.Fatal(err)
 				}
-				err = downloadWallpapers(c.String("search"), c.String("cache"), width, height)
+
+				err = downloadWallpapers(c, width, height)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -123,57 +147,41 @@ func main() {
 
 }
 
-func getResolution() (int, int, error) {
+func getResolution() (int64, int64, error) {
 
-	conn, err := getSocket()
-
-	msg, err := trip(conn, message{Type: messageTypeGetOutputs})
-	if err != nil {
-		return 0, 0, err
-	}
-	outputs := make(SwayOutputs, 0, 0)
-	err = json.Unmarshal(msg.Payload, &outputs)
+	outputs, err := i3.GetOutputs()
 	if err != nil {
 		return 0, 0, err
 	}
 	rect := outputs[0].Rect
-	err = conn.Close()
-	if err != nil {
-		return 0, 0, err
-	}
 	return rect.Width, rect.Height, nil
 
 }
 
-func downloadWallpapers(term string, path string, width, height int) error {
-	res := new(GoHaven.Resolutions)
-	err := res.Set(fmt.Sprintf("%vx%v", width, height))
+func downloadWallpapers(c *cli.Context, width, height int64) error {
+	term := c.String("search")
+
+	results, err := wallhaven.SearchWallpapers(&wallhaven.Search{
+		Query: wallhaven.Q{
+			Tags: []string{term},
+		},
+		AtLeast: wallhaven.Resolution{
+			Width:  width,
+			Height: height,
+		},
+	})
 	if err != nil {
 		return err
 	}
 
-	gh := GoHaven.New()
-	ghi, err := gh.Search(term, res)
-	if err != nil {
-		return err
-	}
-	for _, res := range ghi.Results {
-		detail, err := res.ImageID.Details()
+	for _, wp := range results.Data {
+		err := wp.Download(getCachePathFromCtx(c))
 		if err != nil {
 			return err
 		}
-
-		// byt, err := json.Marshal(detail)
-		// if err != nil {
-		// 	return err
-		// }
-
-		p, err := detail.Download(getCachePath(path))
-		if err != nil {
-			return err
-		}
-		fmt.Println(p)
+		fmt.Println(wp.URL)
 	}
+
 	return nil
 }
 
@@ -191,19 +199,18 @@ func setWallpaper(c *cli.Context) error {
 	rand.Seed(time.Now().Unix())
 	img := fmt.Sprint(images[rand.Intn(len(images))])
 	fmt.Println(img)
-	conn, err := getSocket()
+
+	results, err := i3.RunCommand("output * bg " + img + " fill")
 	if err != nil {
 		return err
 	}
-	msg, err := trip(conn, message{Type: messageTypeRunCommand, Payload: []byte("output * bg " + img + " fill")})
-	if err != nil {
-		return err
+
+	var ok = true
+	for _, result := range results {
+		ok = ok && result.Success
 	}
-	err = conn.Close()
-	if err != nil {
-		return err
-	}
-	if bytes.Compare(msg.Payload, []byte(`[ { "success": true } ]`)) == 0 {
+
+	if ok {
 		db, err := getDbFromCtx(c)
 		if err != nil {
 			return err
@@ -216,11 +223,9 @@ func setWallpaper(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-	} else {
-		return fmt.Errorf("%s", msg.Payload)
 	}
 
-	return err
+	return nil
 }
 
 func getWallpaper(c *cli.Context) error {
@@ -245,17 +250,11 @@ func restoreWallpaper(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	conn, err := getSocket()
+	_, err = i3.RunCommand("output * bg " + wallpaper + " fill")
 	if err != nil {
 		return err
 	}
-	msg, err := trip(conn, message{Type: messageTypeRunCommand, Payload: []byte("output * bg " + wallpaper + " fill")})
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s", msg.Payload)
-	return conn.Close()
-	// if bytes.Compare(msg.Payload, []byte(`[ { "success": true } ]`)) == 0 {db.close()
+	return nil
 }
 
 func removeWallpaper(c *cli.Context) error {
