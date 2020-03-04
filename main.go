@@ -159,6 +159,10 @@ func getResolution() (int64, int64, error) {
 }
 
 func downloadWallpapers(c *cli.Context, width, height int64) error {
+
+	cachePath := getCachePathFromCtx(c)
+	os.MkdirAll(cachePath, os.ModeDir)
+
 	term := c.String("search")
 
 	results, err := wallhaven.SearchWallpapers(&wallhaven.Search{
@@ -175,7 +179,7 @@ func downloadWallpapers(c *cli.Context, width, height int64) error {
 	}
 
 	for _, wp := range results.Data {
-		err := wp.Download(getCachePathFromCtx(c))
+		err := wp.Download(cachePath)
 		if err != nil {
 			return err
 		}
