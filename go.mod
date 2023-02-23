@@ -6,8 +6,8 @@ require (
 	github.com/urfave/cli v1.20.0
 	go.etcd.io/bbolt v1.3.0
 	go.i3wm.org/i3 v0.0.0-20190622190111-b394c474f651
-	golang.org/x/net v0.0.0-20181114220301-adae6a3d119a // indirect
-	golang.org/x/sys v0.0.0-20190621203818-d432491b9138 // indirect
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
+	golang.org/x/sys v0.5.0 // indirect
 )
 
 go 1.13
