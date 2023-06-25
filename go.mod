@@ -1,4 +1,4 @@
-module github.com/dlasky/wallhaven
+module github.com/dlasky/sway-wallhaven
 
 require (
 	github.com/boltdb/bolt v1.3.1 // indirect
