@@ -161,7 +161,7 @@ func getResolution() (int64, int64, error) {
 func downloadWallpapers(c *cli.Context, width, height int64) error {
 
 	cachePath := getCachePathFromCtx(c)
-	os.MkdirAll(cachePath, os.ModeDir)
+	os.MkdirAll(cachePath, 0755)
 
 	term := c.String("search")
 
